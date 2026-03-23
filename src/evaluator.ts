@@ -40,6 +40,26 @@ export function evaluate(tokens: Token[]): number {
       return -parseFactor();
     }
 
+    if (token.type === "func") {
+      const name = token.value as string;
+      advance();
+      if (peek()?.type !== "paren" || peek()?.value !== "(") {
+        throw new Error(`Expected '(' after function name '${name}'`);
+      }
+      advance();
+      const arg = parseExpression();
+      if (peek()?.type !== "paren" || peek()?.value !== ")") {
+        throw new Error("Missing closing parenthesis");
+      }
+      advance();
+      switch (name) {
+        case "abs": return Math.abs(arg);
+        case "sqrt": return Math.sqrt(arg);
+        case "round": return Math.round(arg);
+        default: throw new Error(`Unknown function: ${name}`);
+      }
+    }
+
     if (token.type === "number") {
       advance();
       return token.value;

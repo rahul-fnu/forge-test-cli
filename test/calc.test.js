@@ -21,4 +21,14 @@ describe("Calculator", () => {
   it("throws on division by zero", () => {
     assert.throws(() => calc("5 / 0"), /Division by zero/);
   });
+
+  it("abs of negative", () => assert.strictEqual(calc("abs(-5)"), 5));
+  it("abs of positive", () => assert.strictEqual(calc("abs(3)"), 3));
+  it("sqrt", () => assert.strictEqual(calc("sqrt(16)"), 4));
+  it("round", () => assert.strictEqual(calc("round(3.7)"), 4));
+  it("round down", () => assert.strictEqual(calc("round(3.2)"), 3));
+  it("function in expression", () => assert.strictEqual(calc("1 + abs(-5) * 2"), 11));
+  it("throws on unknown function", () => {
+    assert.throws(() => calc("foo(1)"), /Unknown function/);
+  });
 });
