@@ -3,17 +3,17 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 
 export interface CalcConfig {
-  macros: Record<string, string>;
+  precision?: number;
+  format?: string;
+  variables?: Record<string, number>;
 }
 
-export function loadConfig(): CalcConfig {
-  const defaultConfig: CalcConfig = { macros: {} };
-  const configPath = join(homedir(), ".calcrc");
+export function loadConfig(filePath?: string): CalcConfig {
+  const configPath = filePath ?? join(homedir(), ".calcrc");
   try {
-    const raw = readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(raw);
-    return { ...defaultConfig, ...parsed };
+    const data = readFileSync(configPath, "utf-8");
+    return JSON.parse(data) as CalcConfig;
   } catch {
-    return defaultConfig;
+    return {};
   }
 }
