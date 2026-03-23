@@ -3,6 +3,7 @@ import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
+import { formatResult } from "./formatter.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -21,13 +22,15 @@ if (args.includes("--help")) {
   console.log(`Usage: calc [expression] [options]
 
 Options:
-  --help       Show this help message
-  --version    Show version number
-  --history N  Show last N history entries
+  --help              Show this help message
+  --version           Show version number
+  --history N         Show last N history entries
+  --format FORMAT     Output format: plain, json, table, csv (default: plain)
 
 Examples:
   calc 2 + 3
   calc "(10 - 2) * 3"
+  calc --format json "2+3"
   calc --version
   calc --help`);
   process.exit(0);
@@ -43,6 +46,13 @@ if (historyFlagIndex !== -1) {
     console.log(`${entry.expr} = ${entry.result}  (${entry.timestamp})`);
   }
 } else {
+  const formatIndex = args.indexOf("--format");
+  let format: "plain" | "json" | "table" | "csv" = "plain";
+  if (formatIndex !== -1) {
+    format = (args[formatIndex + 1] || "plain") as typeof format;
+    args.splice(formatIndex, 2);
+  }
+
   const expr = args.join(" ");
   if (!expr) {
     startRepl();
@@ -50,7 +60,7 @@ if (historyFlagIndex !== -1) {
     try {
       const tokens = tokenize(expr);
       const result = evaluate(tokens);
-      console.log(result);
+      console.log(formatResult(expr, result, format));
       const history = new ExpressionHistory();
       history.record(expr, result);
     } catch (err) {
