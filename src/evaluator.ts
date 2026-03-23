@@ -35,6 +35,11 @@ export function evaluate(tokens: Token[]): number {
     const token = peek();
     if (!token) throw new Error("Unexpected end of expression");
 
+    if (token.type === "op" && token.value === "-") {
+      advance();
+      return -parseFactor();
+    }
+
     if (token.type === "number") {
       advance();
       return token.value;
