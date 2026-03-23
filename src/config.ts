@@ -6,6 +6,7 @@ export interface CalcConfig {
   precision?: number;
   format?: string;
   variables?: Record<string, number>;
+  macros?: Record<string, string>;
 }
 
 export function loadConfig(filePath?: string): CalcConfig {
