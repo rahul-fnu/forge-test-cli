@@ -6,17 +6,34 @@ import { ExpressionHistory } from "./history.js";
 import { formatResult } from "./formatter.js";
 import { MacroExpander } from "./macros.js";
 import { loadConfig } from "./config.js";
+import { LRUCache } from "./cache.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const args = process.argv.slice(2);
+const noCacheIndex = args.indexOf("--no-cache");
+if (noCacheIndex !== -1) args.splice(noCacheIndex, 1);
+const expressionCache = noCacheIndex !== -1 ? null : new LRUCache<string, number>(1000);
 
 if (args.includes("--version")) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
   console.log(pkg.version);
+  process.exit(0);
+}
+
+if (args.includes("--cache-stats")) {
+  if (expressionCache) {
+    const s = expressionCache.stats();
+    console.log(`Cache hits: ${s.hits}`);
+    console.log(`Cache misses: ${s.misses}`);
+    console.log(`Hit rate: ${(s.hitRate * 100).toFixed(1)}%`);
+    console.log(`Size: ${s.size}/${s.maxSize}`);
+  } else {
+    console.log("Cache is disabled");
+  }
   process.exit(0);
 }
 
@@ -31,6 +48,8 @@ Options:
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
+  --cache-stats       Print cache statistics
+  --no-cache          Disable expression caching
 
 Examples:
   calc 2 + 3
@@ -189,8 +208,14 @@ if (historyFlagIndex !== -1) {
       startRepl();
     } else {
       try {
-        const tokens = tokenize(expr);
-        const result = evaluate(tokens);
+        let result: number;
+        if (expressionCache && expressionCache.has(expr)) {
+          result = expressionCache.get(expr)!;
+        } else {
+          const tokens = tokenize(expr);
+          result = evaluate(tokens);
+          if (expressionCache) expressionCache.set(expr, result);
+        }
         console.log(formatResult(expr, result, format));
         const history = new ExpressionHistory();
         history.record(expr, result);
