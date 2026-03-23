@@ -4,7 +4,7 @@ import { Token } from "./tokenizer.js";
  * Simple recursive descent parser/evaluator.
  * Supports +, -, *, / with standard precedence and parentheses.
  */
-export function evaluate(tokens: Token[]): number {
+export function evaluate(tokens: Token[], variables?: Map<string, number>): number {
   let pos = 0;
 
   function peek(): Token | undefined { return tokens[pos]; }
@@ -44,7 +44,10 @@ export function evaluate(tokens: Token[]): number {
       const name = token.value as string;
       advance();
       if (peek()?.type !== "paren" || peek()?.value !== "(") {
-        throw new Error(`Expected '(' after function name '${name}'`);
+        if (variables && variables.has(name)) {
+          return variables.get(name)!;
+        }
+        throw new Error(`Unknown variable: ${name}`);
       }
       advance();
       const arg = parseExpression();
