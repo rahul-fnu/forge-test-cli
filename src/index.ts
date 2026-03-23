@@ -6,34 +6,31 @@ import { ExpressionHistory } from "./history.js";
 import { formatResult } from "./formatter.js";
 import { MacroExpander } from "./macros.js";
 import { loadConfig } from "./config.js";
-import { LRUCache } from "./cache.js";
+import { green, red, setColorsEnabled } from "./colors.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const args = process.argv.slice(2);
-const noCacheIndex = args.indexOf("--no-cache");
-if (noCacheIndex !== -1) args.splice(noCacheIndex, 1);
-const expressionCache = noCacheIndex !== -1 ? null : new LRUCache<string, number>(1000);
+
+// Determine color mode
+const noColorFlag = args.includes("--no-color");
+const colorFlag = args.includes("--color");
+if (noColorFlag) {
+  args.splice(args.indexOf("--no-color"), 1);
+  setColorsEnabled(false);
+} else if (colorFlag) {
+  args.splice(args.indexOf("--color"), 1);
+  setColorsEnabled(true);
+} else if (process.env.NO_COLOR !== undefined || !process.stdout.isTTY) {
+  setColorsEnabled(false);
+}
 
 if (args.includes("--version")) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
   console.log(pkg.version);
-  process.exit(0);
-}
-
-if (args.includes("--cache-stats")) {
-  if (expressionCache) {
-    const s = expressionCache.stats();
-    console.log(`Cache hits: ${s.hits}`);
-    console.log(`Cache misses: ${s.misses}`);
-    console.log(`Hit rate: ${(s.hitRate * 100).toFixed(1)}%`);
-    console.log(`Size: ${s.size}/${s.maxSize}`);
-  } else {
-    console.log("Cache is disabled");
-  }
   process.exit(0);
 }
 
@@ -48,8 +45,8 @@ Options:
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
-  --cache-stats       Print cache statistics
-  --no-cache          Disable expression caching
+  --color             Force colored output
+  --no-color          Disable colored output
 
 Examples:
   calc 2 + 3
@@ -112,11 +109,11 @@ if (historyFlagIndex !== -1) {
       const expanded = macroExpander.expandExpression(trimmed);
       const tokens = tokenize(expanded);
       const result = evaluate(tokens);
-      output.push(formatResult(trimmed, result, format));
+      output.push(green(formatResult(trimmed, result, format)));
       successful++;
       values.push(result);
     } catch (err) {
-      output.push(`Error: ${(err as Error).message}`);
+      output.push(red(`Error: ${(err as Error).message}`));
       errors++;
     }
   }
@@ -183,9 +180,9 @@ if (historyFlagIndex !== -1) {
       try {
         const tokens = tokenize(trimmed);
         const result = evaluate(tokens);
-        results.push(formatResult(trimmed, result, format));
+        results.push(green(formatResult(trimmed, result, format)));
       } catch (err) {
-        results.push(`Error: ${(err as Error).message}`);
+        results.push(red(`Error: ${(err as Error).message}`));
         hasError = true;
       }
     }
@@ -208,19 +205,13 @@ if (historyFlagIndex !== -1) {
       startRepl();
     } else {
       try {
-        let result: number;
-        if (expressionCache && expressionCache.has(expr)) {
-          result = expressionCache.get(expr)!;
-        } else {
-          const tokens = tokenize(expr);
-          result = evaluate(tokens);
-          if (expressionCache) expressionCache.set(expr, result);
-        }
-        console.log(formatResult(expr, result, format));
+        const tokens = tokenize(expr);
+        const result = evaluate(tokens);
+        console.log(green(formatResult(expr, result, format)));
         const history = new ExpressionHistory();
         history.record(expr, result);
       } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
+        console.error(red(`Error: ${(err as Error).message}`));
         process.exit(1);
       }
     }
