@@ -23,8 +23,25 @@ describe("Calculator", () => {
   it("negates a number", () => assert.strictEqual(calc("-5"), -5));
   it("negates a parenthesized expression", () => assert.strictEqual(calc("-(2+3)"), -5));
   it("unary minus with multiplication", () => assert.strictEqual(calc("-2 * 3"), -6));
-  it("throws on division by zero", () => {
-    assert.throws(() => calc("5 / 0"), /Division by zero/);
+  it("division by zero returns Infinity", () => {
+    assert.strictEqual(calc("1 / 0"), Infinity);
+  });
+
+  it("negative division by zero returns -Infinity", () => {
+    assert.strictEqual(calc("-1 / 0"), -Infinity);
+  });
+
+  it("0/0 returns NaN", () => {
+    assert.ok(isNaN(calc("0 / 0")));
+  });
+
+  it("sqrt of negative returns NaN", () => {
+    assert.ok(isNaN(calc("sqrt(-1)")));
+  });
+
+  it("overflow warns for huge numbers", () => {
+    const result = calc("9007199254740992 + 1");
+    assert.strictEqual(typeof result, "number");
   });
 
   it("abs of negative", () => assert.strictEqual(calc("abs(-5)"), 5));
@@ -35,6 +52,36 @@ describe("Calculator", () => {
   it("function in expression", () => assert.strictEqual(calc("1 + abs(-5) * 2"), 11));
   it("throws on unknown function", () => {
     assert.throws(() => calc("foo(1)"), /Unknown function/);
+  });
+});
+
+describe("Strict mode", () => {
+  function calcStrict(expr) {
+    return evaluate(tokenize(expr), undefined, { strict: true });
+  }
+
+  it("--strict throws on division by zero", () => {
+    assert.throws(() => calcStrict("1 / 0"), /Division by zero/);
+  });
+
+  it("--strict throws on 0/0 NaN", () => {
+    assert.throws(() => calcStrict("0 / 0"), /NaN result/);
+  });
+
+  it("--strict throws on sqrt(-1)", () => {
+    assert.throws(() => calcStrict("sqrt(-1)"), /sqrt of negative/);
+  });
+
+  it("--strict throws on overflow", () => {
+    assert.throws(() => calcStrict("9007199254740992 + 1"), /imprecise/);
+  });
+});
+
+describe("CLI --strict flag", () => {
+  it("--strict causes error exit on division by zero", () => {
+    assert.throws(() => {
+      execFileSync("node", ["dist/index.js", "--strict", "1 / 0"], { encoding: "utf-8" });
+    });
   });
 });
 

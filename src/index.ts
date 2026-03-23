@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { evaluate } from "./evaluator.js";
+import { evaluate, EvaluateOptions } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
@@ -28,6 +28,7 @@ Options:
   --version           Show version number
   --history N         Show last N history entries
   --format FORMAT     Output format: plain, json, table, csv (default: plain)
+  --strict            Throw errors instead of warnings for edge cases
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
@@ -42,6 +43,10 @@ Examples:
   calc --help`);
   process.exit(0);
 }
+
+const strictIndex = args.indexOf("--strict");
+const evalOptions: EvaluateOptions = { strict: strictIndex !== -1 };
+if (strictIndex !== -1) args.splice(strictIndex, 1);
 
 const historyFlagIndex = args.indexOf("--history");
 
@@ -92,7 +97,7 @@ if (historyFlagIndex !== -1) {
     try {
       const expanded = macroExpander.expandExpression(trimmed);
       const tokens = tokenize(expanded);
-      const result = evaluate(tokens);
+      const result = evaluate(tokens, undefined, evalOptions);
       output.push(formatResult(trimmed, result, format));
       successful++;
       values.push(result);
@@ -163,7 +168,7 @@ if (historyFlagIndex !== -1) {
       if (!trimmed) continue;
       try {
         const tokens = tokenize(trimmed);
-        const result = evaluate(tokens);
+        const result = evaluate(tokens, undefined, evalOptions);
         results.push(formatResult(trimmed, result, format));
       } catch (err) {
         results.push(`Error: ${(err as Error).message}`);
@@ -190,7 +195,7 @@ if (historyFlagIndex !== -1) {
     } else {
       try {
         const tokens = tokenize(expr);
-        const result = evaluate(tokens);
+        const result = evaluate(tokens, undefined, evalOptions);
         console.log(formatResult(expr, result, format));
         const history = new ExpressionHistory();
         history.record(expr, result);
