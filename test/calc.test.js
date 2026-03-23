@@ -15,6 +15,9 @@ describe("Calculator", () => {
   it("respects precedence", () => assert.strictEqual(calc("2 + 3 * 4"), 14));
   it("handles parentheses", () => assert.strictEqual(calc("(2 + 3) * 4"), 20));
   it("handles decimals", () => assert.strictEqual(calc("1.5 + 2.5"), 4));
+  it("negates a number", () => assert.strictEqual(calc("-5"), -5));
+  it("negates a parenthesized expression", () => assert.strictEqual(calc("-(2+3)"), -5));
+  it("unary minus with multiplication", () => assert.strictEqual(calc("-2 * 3"), -6));
   it("throws on division by zero", () => {
     assert.throws(() => calc("5 / 0"), /Division by zero/);
   });
