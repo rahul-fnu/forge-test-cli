@@ -5,12 +5,24 @@ const CONSTANTS: Record<string, number> = {
   E: Math.E,
 };
 
+export interface EvaluateOptions {
+  strict?: boolean;
+}
+
+function warn(message: string, strict: boolean): void {
+  if (strict) {
+    throw new Error(message);
+  }
+  process.stderr.write(`Warning: ${message}\n`);
+}
+
 /**
  * Simple recursive descent parser/evaluator.
  * Supports +, -, *, / with standard precedence and parentheses.
  */
-export function evaluate(tokens: Token[], variables?: Map<string, number>): number {
+export function evaluate(tokens: Token[], variables?: Map<string, number>, options?: EvaluateOptions): number {
   let pos = 0;
+  const strict = options?.strict ?? false;
 
   function peek(): Token | undefined { return tokens[pos]; }
   function advance(): Token { return tokens[pos++]; }
@@ -30,8 +42,19 @@ export function evaluate(tokens: Token[], variables?: Map<string, number>): numb
     while (peek()?.type === "op" && (peek()?.value === "*" || peek()?.value === "/")) {
       const op = advance().value;
       const right = parseFactor();
-      if (op === "/" && right === 0) throw new Error("Division by zero");
-      left = op === "*" ? left * right : left / right;
+      if (op === "/") {
+        if (left === 0 && right === 0) {
+          warn("NaN result", strict);
+          left = NaN;
+        } else if (right === 0) {
+          warn("Division by zero", strict);
+          left = left > 0 ? Infinity : -Infinity;
+        } else {
+          left = left / right;
+        }
+      } else {
+        left = left * right;
+      }
     }
     return left;
   }
@@ -65,7 +88,13 @@ export function evaluate(tokens: Token[], variables?: Map<string, number>): numb
       advance();
       switch (name) {
         case "abs": return Math.abs(arg);
-        case "sqrt": return Math.sqrt(arg);
+        case "sqrt": {
+          if (arg < 0) {
+            warn("sqrt of negative number", strict);
+            return NaN;
+          }
+          return Math.sqrt(arg);
+        }
         case "round": return Math.round(arg);
         default: throw new Error(`Unknown function: ${name}`);
       }
@@ -93,5 +122,10 @@ export function evaluate(tokens: Token[], variables?: Map<string, number>): numb
   if (pos < tokens.length) {
     throw new Error(`Unexpected token after expression: ${JSON.stringify(tokens[pos])}`);
   }
+
+  if (!isNaN(result) && isFinite(result) && Math.abs(result) > Number.MAX_SAFE_INTEGER) {
+    warn("Result may be imprecise", strict);
+  }
+
   return result;
 }
