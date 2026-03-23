@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import { execSync } from "node:child_process";
 import { tokenize } from "../dist/tokenizer.js";
 import { evaluate } from "../dist/evaluator.js";
 
@@ -20,5 +21,23 @@ describe("Calculator", () => {
   it("unary minus with multiplication", () => assert.strictEqual(calc("-2 * 3"), -6));
   it("throws on division by zero", () => {
     assert.throws(() => calc("5 / 0"), /Division by zero/);
+  });
+});
+
+describe("--precision flag", () => {
+  function run(args) {
+    return execSync(`node dist/index.js ${args}`, { encoding: "utf-8" }).trim();
+  }
+
+  it("precision 2 rounds output", () => {
+    assert.strictEqual(run('--precision 2 "10 / 3"'), "3.33");
+  });
+
+  it("precision 0 rounds to integer", () => {
+    assert.strictEqual(run('--precision 0 "10 / 3"'), "3");
+  });
+
+  it("no precision flag gives full precision", () => {
+    assert.strictEqual(run('"10 / 3"'), String(10 / 3));
   });
 });
