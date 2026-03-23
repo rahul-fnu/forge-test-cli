@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
+import { execFileSync } from "node:child_process";
 import { tokenize } from "../dist/tokenizer.js";
 import { evaluate } from "../dist/evaluator.js";
 
@@ -30,5 +31,22 @@ describe("Calculator", () => {
   it("function in expression", () => assert.strictEqual(calc("1 + abs(-5) * 2"), 11));
   it("throws on unknown function", () => {
     assert.throws(() => calc("foo(1)"), /Unknown function/);
+  });
+});
+
+describe("CLI flags", () => {
+  const bin = "node dist/index.js";
+
+  it("--version prints version from package.json", () => {
+    const output = execFileSync("node", ["dist/index.js", "--version"], { encoding: "utf-8" }).trim();
+    assert.strictEqual(output, "1.0.0");
+  });
+
+  it("--help prints usage information", () => {
+    const output = execFileSync("node", ["dist/index.js", "--help"], { encoding: "utf-8" });
+    assert.ok(output.includes("Usage:"));
+    assert.ok(output.includes("--help"));
+    assert.ok(output.includes("--version"));
+    assert.ok(output.includes("Examples:"));
   });
 });

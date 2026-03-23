@@ -3,8 +3,36 @@ import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const args = process.argv.slice(2);
+
+if (args.includes("--version")) {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+  console.log(pkg.version);
+  process.exit(0);
+}
+
+if (args.includes("--help")) {
+  console.log(`Usage: calc [expression] [options]
+
+Options:
+  --help       Show this help message
+  --version    Show version number
+  --history N  Show last N history entries
+
+Examples:
+  calc 2 + 3
+  calc "(10 - 2) * 3"
+  calc --version
+  calc --help`);
+  process.exit(0);
+}
+
 const historyFlagIndex = args.indexOf("--history");
 
 if (historyFlagIndex !== -1) {
