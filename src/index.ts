@@ -2,32 +2,41 @@
 import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
-import { ExpressionHistory } from "./history.js";
+import { addEntry } from "./history.js";
+import * as readline from "node:readline";
 
-const args = process.argv.slice(2);
-const historyFlagIndex = args.indexOf("--history");
-
-if (historyFlagIndex !== -1) {
-  const n = parseInt(args[historyFlagIndex + 1], 10) || 10;
-  const history = new ExpressionHistory();
-  const entries = history.getHistory().slice(-n);
-  for (const entry of entries) {
-    console.log(`${entry.expr} = ${entry.result}  (${entry.timestamp})`);
+const expr = process.argv.slice(2).join(" ");
+if (expr) {
+  try {
+    const tokens = tokenize(expr);
+    const result = evaluate(tokens);
+    console.log(result);
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
+    process.exit(1);
   }
-} else {
-  const expr = args.join(" ");
-  if (!expr) {
-    startRepl();
-  } else {
-    try {
-      const tokens = tokenize(expr);
-      const result = evaluate(tokens);
-      console.log(result);
-      const history = new ExpressionHistory();
-      history.record(expr, result);
-    } catch (err) {
-      console.error(`Error: ${(err as Error).message}`);
-      process.exit(1);
+} else if (!process.stdin.isTTY) {
+  const rl = readline.createInterface({ input: process.stdin });
+  const lines: string[] = [];
+  rl.on("line", (line) => lines.push(line));
+  rl.on("close", () => {
+    let hasError = false;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const tokens = tokenize(trimmed);
+        const result = evaluate(tokens);
+        addEntry(trimmed, String(result));
+        console.log(result);
+      } catch (err) {
+        hasError = true;
+        addEntry(trimmed, `Error: ${(err as Error).message}`);
+        console.log(`Error: ${(err as Error).message}`);
+      }
     }
-  }
+    if (hasError) process.exit(1);
+  });
+} else {
+  startRepl();
 }
