@@ -56,14 +56,14 @@ export function evaluateLine(
   return String(result);
 }
 
-export function startRepl(): void {
+export function startRepl(initialVariables?: Map<string, number>): void {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: "calc> ",
   });
 
-  const variables = new Map<string, number>();
+  const variables = new Map<string, number>(initialVariables);
   let buffer = "";
 
   rl.prompt();
