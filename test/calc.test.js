@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { execFileSync } from "node:child_process";
+import { writeFileSync, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { tokenize } from "../dist/tokenizer.js";
 import { evaluate } from "../dist/evaluator.js";
 import { formatResult } from "../dist/formatter.js";
@@ -104,5 +107,75 @@ describe("CLI flags", () => {
   it("default format is plain (backward compatible)", () => {
     const output = execFileSync("node", ["dist/index.js", "2+3"], { encoding: "utf-8" }).trim();
     assert.strictEqual(output, "5");
+  });
+});
+
+describe("File I/O (-f and -o flags)", () => {
+  const inputFile = join(tmpdir(), "calc-test-input.txt");
+  const outputFile = join(tmpdir(), "calc-test-output.txt");
+
+  function cleanup() {
+    try { unlinkSync(inputFile); } catch {}
+    try { unlinkSync(outputFile); } catch {}
+  }
+
+  it("-f reads expressions from file and prints to stdout", () => {
+    cleanup();
+    writeFileSync(inputFile, "2 + 3\n10 * 4\n7 - 2\n", "utf-8");
+    const output = execFileSync("node", ["dist/index.js", "-f", inputFile], { encoding: "utf-8" });
+    const lines = output.trim().split("\n");
+    assert.strictEqual(lines[0], "5");
+    assert.strictEqual(lines[1], "40");
+    assert.strictEqual(lines[2], "5");
+    cleanup();
+  });
+
+  it("-f with -o writes results to output file", () => {
+    cleanup();
+    writeFileSync(inputFile, "1 + 1\n3 * 3\n", "utf-8");
+    execFileSync("node", ["dist/index.js", "-f", inputFile, "-o", outputFile], { encoding: "utf-8" });
+    const content = readFileSync(outputFile, "utf-8");
+    const lines = content.trim().split("\n");
+    assert.strictEqual(lines[0], "2");
+    assert.strictEqual(lines[1], "9");
+    cleanup();
+  });
+
+  it("-f with --format json outputs JSON format", () => {
+    cleanup();
+    writeFileSync(inputFile, "2+3\n", "utf-8");
+    const output = execFileSync("node", ["dist/index.js", "-f", inputFile, "--format", "json"], { encoding: "utf-8" });
+    const parsed = JSON.parse(output.trim());
+    assert.strictEqual(parsed.result, 5);
+    cleanup();
+  });
+
+  it("-f prints errors for bad lines but continues processing", () => {
+    cleanup();
+    writeFileSync(inputFile, "2 + 3\nbadexpr!!\n4 * 2\n", "utf-8");
+    let output;
+    try {
+      output = execFileSync("node", ["dist/index.js", "-f", inputFile], { encoding: "utf-8" });
+      assert.fail("Should have exited with code 1");
+    } catch (err) {
+      output = err.stdout;
+      assert.strictEqual(err.status, 1);
+    }
+    const lines = output.trim().split("\n");
+    assert.strictEqual(lines[0], "5");
+    assert.ok(lines[1].startsWith("Error:"));
+    assert.strictEqual(lines[2], "8");
+    cleanup();
+  });
+
+  it("-f skips blank lines", () => {
+    cleanup();
+    writeFileSync(inputFile, "2 + 3\n\n\n4 + 1\n", "utf-8");
+    const output = execFileSync("node", ["dist/index.js", "-f", inputFile], { encoding: "utf-8" });
+    const lines = output.trim().split("\n");
+    assert.strictEqual(lines.length, 2);
+    assert.strictEqual(lines[0], "5");
+    assert.strictEqual(lines[1], "5");
+    cleanup();
   });
 });
