@@ -1,7 +1,8 @@
 export type Token =
   | { type: "number"; value: number }
   | { type: "op"; value: "+" | "-" | "*" | "/" }
-  | { type: "paren"; value: "(" | ")" };
+  | { type: "paren"; value: "(" | ")" }
+  | { type: "func"; value: string };
 
 export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
@@ -22,6 +23,15 @@ export function tokenize(input: string): Token[] {
     if ("+-*/".includes(input[i])) {
       tokens.push({ type: "op", value: input[i] as "+" | "-" | "*" | "/" });
       i++;
+      continue;
+    }
+
+    if (/[a-zA-Z]/.test(input[i])) {
+      let name = "";
+      while (i < input.length && /[a-zA-Z]/.test(input[i])) {
+        name += input[i++];
+      }
+      tokens.push({ type: "func", value: name });
       continue;
     }
 
