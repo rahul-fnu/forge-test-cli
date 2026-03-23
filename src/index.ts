@@ -4,6 +4,8 @@ import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
 import { formatResult } from "./formatter.js";
+import { loadConfig } from "./config.js";
+import { MacroExpander } from "./macros.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -53,12 +55,19 @@ if (historyFlagIndex !== -1) {
     args.splice(formatIndex, 2);
   }
 
+  const config = loadConfig();
+  const macroExpander = new MacroExpander();
+  for (const [name, template] of Object.entries(config.macros)) {
+    macroExpander.register(name, template);
+  }
+
   const expr = args.join(" ");
   if (!expr) {
-    startRepl();
+    startRepl(macroExpander);
   } else {
     try {
-      const tokens = tokenize(expr);
+      const expanded = macroExpander.expandExpression(expr);
+      const tokens = tokenize(expanded);
       const result = evaluate(tokens);
       console.log(formatResult(expr, result, format));
       const history = new ExpressionHistory();

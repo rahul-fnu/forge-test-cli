@@ -1,6 +1,7 @@
 import * as readline from "node:readline";
 import { tokenize } from "./tokenizer.js";
 import { evaluate } from "./evaluator.js";
+import { MacroExpander } from "./macros.js";
 
 export function handleCommand(
   command: string,
@@ -41,9 +42,11 @@ export function hasUnmatchedParens(input: string): boolean {
 
 export function evaluateLine(
   input: string,
-  variables: Map<string, number>
+  variables: Map<string, number>,
+  macroExpander?: MacroExpander
 ): string {
-  const assignMatch = input.match(/^([a-zA-Z]\w*)\s*=\s*(.+)$/);
+  const expanded = macroExpander ? macroExpander.expandExpression(input) : input;
+  const assignMatch = expanded.match(/^([a-zA-Z]\w*)\s*=\s*(.+)$/);
   if (assignMatch) {
     const [, name, expr] = assignMatch;
     const tokens = tokenize(expr);
@@ -51,12 +54,12 @@ export function evaluateLine(
     variables.set(name, result);
     return String(result);
   }
-  const tokens = tokenize(input);
+  const tokens = tokenize(expanded);
   const result = evaluate(tokens, variables);
   return String(result);
 }
 
-export function startRepl(): void {
+export function startRepl(macroExpander?: MacroExpander): void {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -92,7 +95,7 @@ export function startRepl(): void {
 
     if (buffer) {
       try {
-        const result = evaluateLine(buffer, variables);
+        const result = evaluateLine(buffer, variables, macroExpander);
         console.log(result);
       } catch (err) {
         console.error(`Error: ${(err as Error).message}`);
