@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
+import { PluginRegistry } from "./plugins.js";
+import { mathPlugin } from "./plugins/math.js";
+
+const registry = new PluginRegistry();
+registry.register(mathPlugin);
 
 const expr = process.argv.slice(2).join(" ");
 if (!expr) {
@@ -11,7 +16,7 @@ if (!expr) {
 
 try {
   const tokens = tokenize(expr);
-  const result = evaluate(tokens);
+  const result = evaluate(tokens, registry);
   console.log(result);
 } catch (err) {
   console.error(`Error: ${(err as Error).message}`);

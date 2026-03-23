@@ -2,9 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { tokenize } from "../dist/tokenizer.js";
 import { evaluate } from "../dist/evaluator.js";
+import { PluginRegistry } from "../dist/plugins.js";
+import { mathPlugin } from "../dist/plugins/math.js";
+
+const registry = new PluginRegistry();
+registry.register(mathPlugin);
 
 function calc(expr) {
-  return evaluate(tokenize(expr));
+  return evaluate(tokenize(expr), registry);
 }
 
 describe("Calculator", () => {
@@ -31,4 +36,27 @@ describe("Calculator", () => {
   it("throws on unknown function", () => {
     assert.throws(() => calc("foo(1)"), /Unknown function/);
   });
+
+  // Multi-arg functions
+  it("min of two numbers", () => assert.strictEqual(calc("min(3, 7)"), 3));
+  it("max of two numbers", () => assert.strictEqual(calc("max(3, 7)"), 7));
+  it("min with expressions", () => assert.strictEqual(calc("min(2 + 1, 5 - 1)"), 3));
+  it("max with expressions", () => assert.strictEqual(calc("max(2 * 3, 10 / 2)"), 6));
+
+  // Constants
+  it("PI constant", () => assert.strictEqual(calc("PI()"), Math.PI));
+  it("E constant", () => assert.strictEqual(calc("E()"), Math.E));
+  it("PI in expression", () => assert.ok(Math.abs(calc("PI() * 2") - Math.PI * 2) < 1e-10));
+
+  // Trig functions
+  it("sin(0)", () => assert.strictEqual(calc("sin(0)"), 0));
+  it("cos(0)", () => assert.strictEqual(calc("cos(0)"), 1));
+  it("tan(0)", () => assert.strictEqual(calc("tan(0)"), 0));
+  it("sin of PI", () => assert.ok(Math.abs(calc("sin(PI())")) < 1e-10));
+
+  // Other math functions
+  it("floor", () => assert.strictEqual(calc("floor(3.7)"), 3));
+  it("ceil", () => assert.strictEqual(calc("ceil(3.2)"), 4));
+  it("log", () => assert.strictEqual(calc("log(1)"), 0));
+  it("exp", () => assert.strictEqual(calc("exp(0)"), 1));
 });

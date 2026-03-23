@@ -1,10 +1,7 @@
 import { Token } from "./tokenizer.js";
+import { PluginRegistry } from "./plugins.js";
 
-/**
- * Simple recursive descent parser/evaluator.
- * Supports +, -, *, / with standard precedence and parentheses.
- */
-export function evaluate(tokens: Token[]): number {
+export function evaluate(tokens: Token[], registry: PluginRegistry): number {
   let pos = 0;
 
   function peek(): Token | undefined { return tokens[pos]; }
@@ -47,17 +44,21 @@ export function evaluate(tokens: Token[]): number {
         throw new Error(`Expected '(' after function name '${name}'`);
       }
       advance();
-      const arg = parseExpression();
+      const args: number[] = [];
+      if (!(peek()?.type === "paren" && peek()?.value === ")")) {
+        args.push(parseExpression());
+        while (peek()?.type === "op" && peek()?.value === ",") {
+          advance();
+          args.push(parseExpression());
+        }
+      }
       if (peek()?.type !== "paren" || peek()?.value !== ")") {
         throw new Error("Missing closing parenthesis");
       }
       advance();
-      switch (name) {
-        case "abs": return Math.abs(arg);
-        case "sqrt": return Math.sqrt(arg);
-        case "round": return Math.round(arg);
-        default: throw new Error(`Unknown function: ${name}`);
-      }
+      const fn = registry.getFunction(name);
+      if (!fn) throw new Error(`Unknown function: ${name}`);
+      return fn(args);
     }
 
     if (token.type === "number") {

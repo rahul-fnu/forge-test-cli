@@ -1,6 +1,6 @@
 export type Token =
   | { type: "number"; value: number }
-  | { type: "op"; value: "+" | "-" | "*" | "/" }
+  | { type: "op"; value: "+" | "-" | "*" | "/" | "," }
   | { type: "paren"; value: "(" | ")" }
   | { type: "func"; value: string };
 
@@ -20,8 +20,8 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    if ("+-*/".includes(input[i])) {
-      tokens.push({ type: "op", value: input[i] as "+" | "-" | "*" | "/" });
+    if ("+-*/,".includes(input[i])) {
+      tokens.push({ type: "op", value: input[i] as "+" | "-" | "*" | "/" | "," });
       i++;
       continue;
     }
