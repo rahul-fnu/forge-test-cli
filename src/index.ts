@@ -1,16 +1,30 @@
 #!/usr/bin/env node
-import { evaluate, EvaluateOptions } from "./evaluator.js";
+import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
 import { formatResult } from "./formatter.js";
 import { MacroExpander } from "./macros.js";
 import { loadConfig } from "./config.js";
+import { green, red, setColorsEnabled } from "./colors.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const args = process.argv.slice(2);
+
+// Determine color mode
+const noColorFlag = args.includes("--no-color");
+const colorFlag = args.includes("--color");
+if (noColorFlag) {
+  args.splice(args.indexOf("--no-color"), 1);
+  setColorsEnabled(false);
+} else if (colorFlag) {
+  args.splice(args.indexOf("--color"), 1);
+  setColorsEnabled(true);
+} else if (process.env.NO_COLOR !== undefined || !process.stdout.isTTY) {
+  setColorsEnabled(false);
+}
 
 if (args.includes("--version")) {
   const __filename = fileURLToPath(import.meta.url);
@@ -28,10 +42,11 @@ Options:
   --version           Show version number
   --history N         Show last N history entries
   --format FORMAT     Output format: plain, json, table, csv (default: plain)
-  --strict            Throw errors instead of warnings for edge cases
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
+  --color             Force colored output
+  --no-color          Disable colored output
 
 Examples:
   calc 2 + 3
@@ -43,10 +58,6 @@ Examples:
   calc --help`);
   process.exit(0);
 }
-
-const strictIndex = args.indexOf("--strict");
-const evalOptions: EvaluateOptions = { strict: strictIndex !== -1 };
-if (strictIndex !== -1) args.splice(strictIndex, 1);
 
 const historyFlagIndex = args.indexOf("--history");
 
@@ -97,12 +108,12 @@ if (historyFlagIndex !== -1) {
     try {
       const expanded = macroExpander.expandExpression(trimmed);
       const tokens = tokenize(expanded);
-      const result = evaluate(tokens, undefined, evalOptions);
-      output.push(formatResult(trimmed, result, format));
+      const result = evaluate(tokens);
+      output.push(green(formatResult(trimmed, result, format)));
       successful++;
       values.push(result);
     } catch (err) {
-      output.push(`Error: ${(err as Error).message}`);
+      output.push(red(`Error: ${(err as Error).message}`));
       errors++;
     }
   }
@@ -168,10 +179,10 @@ if (historyFlagIndex !== -1) {
       if (!trimmed) continue;
       try {
         const tokens = tokenize(trimmed);
-        const result = evaluate(tokens, undefined, evalOptions);
-        results.push(formatResult(trimmed, result, format));
+        const result = evaluate(tokens);
+        results.push(green(formatResult(trimmed, result, format)));
       } catch (err) {
-        results.push(`Error: ${(err as Error).message}`);
+        results.push(red(`Error: ${(err as Error).message}`));
         hasError = true;
       }
     }
@@ -195,12 +206,12 @@ if (historyFlagIndex !== -1) {
     } else {
       try {
         const tokens = tokenize(expr);
-        const result = evaluate(tokens, undefined, evalOptions);
-        console.log(formatResult(expr, result, format));
+        const result = evaluate(tokens);
+        console.log(green(formatResult(expr, result, format)));
         const history = new ExpressionHistory();
         history.record(expr, result);
       } catch (err) {
-        console.error(`Error: ${(err as Error).message}`);
+        console.error(red(`Error: ${(err as Error).message}`));
         process.exit(1);
       }
     }
