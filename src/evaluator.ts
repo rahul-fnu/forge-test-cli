@@ -1,5 +1,10 @@
 import { Token } from "./tokenizer.js";
 
+const CONSTANTS: Record<string, number> = {
+  PI: Math.PI,
+  E: Math.E,
+};
+
 /**
  * Simple recursive descent parser/evaluator.
  * Supports +, -, *, / with standard precedence and parentheses.
@@ -44,6 +49,9 @@ export function evaluate(tokens: Token[], variables?: Map<string, number>): numb
       const name = token.value as string;
       advance();
       if (peek()?.type !== "paren" || peek()?.value !== "(") {
+        if (name in CONSTANTS) {
+          return CONSTANTS[name];
+        }
         if (variables && variables.has(name)) {
           return variables.get(name)!;
         }
