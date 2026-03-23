@@ -3,6 +3,7 @@ import assert from "node:assert";
 import { execFileSync } from "node:child_process";
 import { tokenize } from "../dist/tokenizer.js";
 import { evaluate } from "../dist/evaluator.js";
+import { formatResult } from "../dist/formatter.js";
 
 function calc(expr) {
   return evaluate(tokenize(expr));
@@ -34,6 +35,35 @@ describe("Calculator", () => {
   });
 });
 
+describe("Formatter", () => {
+  it("plain format returns just the number", () => {
+    assert.strictEqual(formatResult("2+3", 5, "plain"), "5");
+  });
+
+  it("json format returns valid JSON", () => {
+    const output = formatResult("2+3", 5, "json");
+    const parsed = JSON.parse(output);
+    assert.deepStrictEqual(parsed, { expression: "2+3", result: 5 });
+  });
+
+  it("table format returns ASCII table", () => {
+    const output = formatResult("2+3", 5, "table");
+    assert.ok(output.includes("Expression"));
+    assert.ok(output.includes("Result"));
+    assert.ok(output.includes("2+3"));
+    assert.ok(output.includes("5"));
+    assert.ok(output.includes("+"));
+    assert.ok(output.includes("|"));
+  });
+
+  it("csv format returns header and data row", () => {
+    const output = formatResult("2+3", 5, "csv");
+    const lines = output.split("\n");
+    assert.strictEqual(lines[0], "expression,result");
+    assert.strictEqual(lines[1], "2+3,5");
+  });
+});
+
 describe("CLI flags", () => {
   const bin = "node dist/index.js";
 
@@ -48,5 +78,31 @@ describe("CLI flags", () => {
     assert.ok(output.includes("--help"));
     assert.ok(output.includes("--version"));
     assert.ok(output.includes("Examples:"));
+  });
+
+  it("--format json outputs JSON", () => {
+    const output = execFileSync("node", ["dist/index.js", "--format", "json", "2+3"], { encoding: "utf-8" }).trim();
+    const parsed = JSON.parse(output);
+    assert.strictEqual(parsed.result, 5);
+    assert.strictEqual(parsed.expression, "2+3");
+  });
+
+  it("--format csv outputs CSV", () => {
+    const output = execFileSync("node", ["dist/index.js", "--format", "csv", "2+3"], { encoding: "utf-8" }).trim();
+    const lines = output.split("\n");
+    assert.strictEqual(lines[0], "expression,result");
+    assert.strictEqual(lines[1], "2+3,5");
+  });
+
+  it("--format table outputs ASCII table", () => {
+    const output = execFileSync("node", ["dist/index.js", "--format", "table", "2+3"], { encoding: "utf-8" });
+    assert.ok(output.includes("Expression"));
+    assert.ok(output.includes("Result"));
+    assert.ok(output.includes("2+3"));
+  });
+
+  it("default format is plain (backward compatible)", () => {
+    const output = execFileSync("node", ["dist/index.js", "2+3"], { encoding: "utf-8" }).trim();
+    assert.strictEqual(output, "5");
   });
 });
