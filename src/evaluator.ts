@@ -46,6 +46,9 @@ export function evaluate(tokens: Token[], variables?: Map<string, number>, optio
         if (left === 0 && right === 0) {
           warn("NaN result", strict);
           left = NaN;
+        } else if (Object.is(right, -0)) {
+          warn("Division by zero", strict);
+          left = left > 0 ? -Infinity : Infinity;
         } else if (right === 0) {
           warn("Division by zero", strict);
           left = left > 0 ? Infinity : -Infinity;

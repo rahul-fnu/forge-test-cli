@@ -18,14 +18,15 @@ const args = process.argv.slice(2);
 const noColorFlag = args.includes("--no-color");
 const colorFlag = args.includes("--color");
 if (noColorFlag) {
-  args.splice(args.indexOf("--no-color"), 1);
   setColorsEnabled(false);
 } else if (colorFlag) {
-  args.splice(args.indexOf("--color"), 1);
   setColorsEnabled(true);
 } else if (process.env.NO_COLOR !== undefined || !process.stdout.isTTY) {
   setColorsEnabled(false);
 }
+// Strip both flags unconditionally to prevent them being interpreted as expressions
+if (noColorFlag) args.splice(args.indexOf("--no-color"), 1);
+if (colorFlag) args.splice(args.indexOf("--color"), 1);
 
 if (args.includes("--version")) {
   const __filename = fileURLToPath(import.meta.url);
@@ -70,6 +71,10 @@ if (noSimplifyFlag) {
 const showStepsFlag = args.includes("--show-steps");
 if (showStepsFlag) {
   args.splice(args.indexOf("--show-steps"), 1);
+}
+
+if (showStepsFlag && noSimplifyFlag) {
+  process.stderr.write("Warning: --show-steps has no effect when --no-simplify is used\n");
 }
 
 const historyFlagIndex = args.indexOf("--history");
