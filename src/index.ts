@@ -7,6 +7,7 @@ import { formatResult } from "./formatter.js";
 import { MacroExpander } from "./macros.js";
 import { loadConfig } from "./config.js";
 import { green, red, setColorsEnabled } from "./colors.js";
+import { profileExpression, benchmarkExpression } from "./profiler.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -45,6 +46,8 @@ Options:
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
+  --benchmark EXPR    Benchmark expression (1000 iterations)
+  --profile EXPR      Profile expression with time breakdown
   --color             Force colored output
   --no-color          Disable colored output
 
@@ -67,6 +70,118 @@ if (historyFlagIndex !== -1) {
   const entries = history.getHistory().slice(-n);
   for (const entry of entries) {
     console.log(`${entry.expr} = ${entry.result}  (${entry.timestamp})`);
+  }
+} else if (args.includes("--benchmark")) {
+  const benchIndex = args.indexOf("--benchmark");
+  const expr = args[benchIndex + 1];
+  args.splice(benchIndex, 2);
+
+  const formatIndex = args.indexOf("--format");
+  let format = "plain" as "plain" | "json" | "table" | "csv";
+  if (formatIndex !== -1) {
+    format = (args[formatIndex + 1] || "plain") as "plain" | "json" | "table" | "csv";
+    args.splice(formatIndex, 2);
+  }
+
+  const result = benchmarkExpression(expr);
+
+  if (format === "json") {
+    console.log(JSON.stringify({
+      expression: expr,
+      iterations: result.iterations,
+      average: result.average,
+      min: result.min,
+      max: result.max,
+      median: result.median,
+      opsPerSecond: result.opsPerSecond,
+    }));
+  } else if (format === "csv") {
+    console.log("metric,value");
+    console.log(`average,${result.average.toFixed(2)}`);
+    console.log(`min,${result.min.toFixed(2)}`);
+    console.log(`max,${result.max.toFixed(2)}`);
+    console.log(`median,${result.median.toFixed(2)}`);
+    console.log(`ops/sec,${result.opsPerSecond.toFixed(2)}`);
+  } else if (format === "table") {
+    const rows = [
+      ["Metric", "Value"],
+      ["Iterations", String(result.iterations)],
+      ["Average (μs)", result.average.toFixed(2)],
+      ["Min (μs)", result.min.toFixed(2)],
+      ["Max (μs)", result.max.toFixed(2)],
+      ["Median (μs)", result.median.toFixed(2)],
+      ["Ops/sec", result.opsPerSecond.toFixed(2)],
+    ];
+    const col0 = Math.max(...rows.map((r) => r[0].length));
+    const col1 = Math.max(...rows.map((r) => r[1].length));
+    const sep = `+-${"-".repeat(col0)}-+-${"-".repeat(col1)}-+`;
+    console.log(sep);
+    for (const [label, val] of rows) {
+      console.log(`| ${label.padEnd(col0)} | ${val.padEnd(col1)} |`);
+      if (label === "Metric") console.log(sep);
+    }
+    console.log(sep);
+  } else {
+    console.log(`Benchmark: ${expr}`);
+    console.log(`Iterations: ${result.iterations}`);
+    console.log(`Average: ${result.average.toFixed(2)} μs`);
+    console.log(`Min: ${result.min.toFixed(2)} μs`);
+    console.log(`Max: ${result.max.toFixed(2)} μs`);
+    console.log(`Median: ${result.median.toFixed(2)} μs`);
+    console.log(`Ops/sec: ${result.opsPerSecond.toFixed(2)}`);
+  }
+} else if (args.includes("--profile")) {
+  const profIndex = args.indexOf("--profile");
+  const expr = args[profIndex + 1];
+  args.splice(profIndex, 2);
+
+  const formatIndex = args.indexOf("--format");
+  let format = "plain" as "plain" | "json" | "table" | "csv";
+  if (formatIndex !== -1) {
+    format = (args[formatIndex + 1] || "plain") as "plain" | "json" | "table" | "csv";
+    args.splice(formatIndex, 2);
+  }
+
+  const { result, profile } = profileExpression(expr);
+
+  if (format === "json") {
+    console.log(JSON.stringify({
+      expression: expr,
+      result,
+      tokenizeTime: profile.tokenizeTime,
+      simplifyTime: profile.simplifyTime,
+      evaluateTime: profile.evaluateTime,
+      totalTime: profile.totalTime,
+    }));
+  } else if (format === "csv") {
+    console.log("phase,time_us");
+    console.log(`tokenize,${profile.tokenizeTime.toFixed(2)}`);
+    console.log(`simplify,${profile.simplifyTime.toFixed(2)}`);
+    console.log(`evaluate,${profile.evaluateTime.toFixed(2)}`);
+    console.log(`total,${profile.totalTime.toFixed(2)}`);
+  } else if (format === "table") {
+    const rows = [
+      ["Phase", "Time (μs)"],
+      ["Tokenize", profile.tokenizeTime.toFixed(2)],
+      ["Simplify", profile.simplifyTime.toFixed(2)],
+      ["Evaluate", profile.evaluateTime.toFixed(2)],
+      ["Total", profile.totalTime.toFixed(2)],
+    ];
+    const col0 = Math.max(...rows.map((r) => r[0].length));
+    const col1 = Math.max(...rows.map((r) => r[1].length));
+    const sep = `+-${"-".repeat(col0)}-+-${"-".repeat(col1)}-+`;
+    console.log(sep);
+    for (const [label, val] of rows) {
+      console.log(`| ${label.padEnd(col0)} | ${val.padEnd(col1)} |`);
+      if (label === "Phase") console.log(sep);
+    }
+    console.log(sep);
+  } else {
+    console.log(`Profile: ${expr} = ${result}`);
+    console.log(`Tokenize: ${profile.tokenizeTime.toFixed(2)} μs`);
+    console.log(`Simplify: ${profile.simplifyTime.toFixed(2)} μs`);
+    console.log(`Evaluate: ${profile.evaluateTime.toFixed(2)} μs`);
+    console.log(`Total: ${profile.totalTime.toFixed(2)} μs`);
   }
 } else if (args.includes("--batch")) {
   const batchIndex = args.indexOf("--batch");
