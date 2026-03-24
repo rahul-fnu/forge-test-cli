@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { evaluate } from "./evaluator.js";
 import { tokenize } from "./tokenizer.js";
+import { simplify, showSteps } from "./simplifier.js";
 import { startRepl } from "./repl.js";
 import { ExpressionHistory } from "./history.js";
 import { formatResult } from "./formatter.js";
@@ -45,6 +46,8 @@ Options:
   -f FILE             Read expressions from file (one per line)
   --batch FILE        Run batch mode with summary report
   -o FILE             Write results to output file (use with -f or --batch)
+  --no-simplify       Skip expression optimization
+  --show-steps        Show simplification steps
   --color             Force colored output
   --no-color          Disable colored output
 
@@ -57,6 +60,16 @@ Examples:
   calc --version
   calc --help`);
   process.exit(0);
+}
+
+const noSimplifyFlag = args.includes("--no-simplify");
+if (noSimplifyFlag) {
+  args.splice(args.indexOf("--no-simplify"), 1);
+}
+
+const showStepsFlag = args.includes("--show-steps");
+if (showStepsFlag) {
+  args.splice(args.indexOf("--show-steps"), 1);
 }
 
 const historyFlagIndex = args.indexOf("--history");
@@ -108,7 +121,8 @@ if (historyFlagIndex !== -1) {
     try {
       const expanded = macroExpander.expandExpression(trimmed);
       const tokens = tokenize(expanded);
-      const result = evaluate(tokens);
+      const finalTokens = noSimplifyFlag ? tokens : simplify(tokens);
+      const result = evaluate(finalTokens);
       output.push(green(formatResult(trimmed, result, format)));
       successful++;
       values.push(result);
@@ -179,7 +193,8 @@ if (historyFlagIndex !== -1) {
       if (!trimmed) continue;
       try {
         const tokens = tokenize(trimmed);
-        const result = evaluate(tokens);
+        const finalTokens = noSimplifyFlag ? tokens : simplify(tokens);
+        const result = evaluate(finalTokens);
         results.push(green(formatResult(trimmed, result, format)));
       } catch (err) {
         results.push(red(`Error: ${(err as Error).message}`));
@@ -206,10 +221,22 @@ if (historyFlagIndex !== -1) {
     } else {
       try {
         const tokens = tokenize(expr);
-        const result = evaluate(tokens);
-        console.log(green(formatResult(expr, result, format)));
-        const history = new ExpressionHistory();
-        history.record(expr, result);
+        if (showStepsFlag && !noSimplifyFlag) {
+          const steps = showSteps(tokens);
+          const simplified = simplify(tokens);
+          const result = evaluate(simplified);
+          const lastStep = steps[steps.length - 1];
+          const allSteps = lastStep === String(result) ? steps : [...steps, String(result)];
+          console.log(allSteps.join(" => "));
+          const history = new ExpressionHistory();
+          history.record(expr, result);
+        } else {
+          const finalTokens = noSimplifyFlag ? tokens : simplify(tokens);
+          const result = evaluate(finalTokens);
+          console.log(green(formatResult(expr, result, format)));
+          const history = new ExpressionHistory();
+          history.record(expr, result);
+        }
       } catch (err) {
         console.error(red(`Error: ${(err as Error).message}`));
         process.exit(1);
